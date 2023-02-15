@@ -2,12 +2,14 @@
 #include <vector>
 #include <string>
 #include <TGraph.h>
+#include <TGraphErrors.h>
 #include <TCanvas.h>
 #include <cctype>
 #include <iostream>
 #include <time.h>
+#include <cmath>
 
-void pmtEff(std::vector<float> PMT_voltage, std::vector<float> eff, std::string cst){
+void pmtEff(std::vector<float> PMT_voltage, std::vector<float> eff,std::vector<float> err_eff, std::string cst){
     /***********************************************************
     \brief Graph of pmt efficiencies in function of pmt voltage
     \par pmt voltage
@@ -16,20 +18,20 @@ void pmtEff(std::vector<float> PMT_voltage, std::vector<float> eff, std::string 
     \return None
     ***********************************************************/
     TCanvas* c = new TCanvas(cst.c_str(),"",1100,900);
-    TGraph* PMT = new TGraph(size(PMT_voltage),&PMT_voltage[0],&eff[0]);
+    TGraphErrors* PMT = new TGraphErrors(size(PMT_voltage),&PMT_voltage[0],&eff[0],nullptr,&err_eff[0]);
     std::string title = "Efficiency vs Voltage-PMT"+cst;
     PMT->SetTitle(title.c_str());
     PMT->SetMarkerStyle(8);
-    PMT->GetXaxis()->SetTitle("Voltage");
+    PMT->GetXaxis()->SetTitle("Voltage [V]");
     PMT->GetYaxis()->SetTitle("Efficiency");
-    PMT->SetLineStyle(2);
+    PMT->GetYaxis()->SetMaxDigits(3);
     PMT->Draw();
     title=title+".pdf";
     c->SaveAs(title.c_str());
 
 }
 
-void pmtCounts(std::vector<float> PMT_voltage, std::vector<float> PMT_counts, std::string cst){
+void pmtCounts(std::vector<float> PMT_voltage, std::vector<float> PMT_counts, std::vector<float> err_counts, std::string cst){
     /***********************************************************
     \brief Graph of pmt efficiencies in function of pmt voltage
     \par pmt voltage
@@ -38,14 +40,14 @@ void pmtCounts(std::vector<float> PMT_voltage, std::vector<float> PMT_counts, st
     \return None
     ***********************************************************/
     TCanvas* c = new TCanvas(("c"+cst).c_str(),"",1100,900);
-    TGraph* PMT = new TGraph(size(PMT_voltage),&PMT_voltage[0],&PMT_counts[0]);
+    TGraphErrors* PMT = new TGraphErrors(size(PMT_voltage),&PMT_voltage[0],&PMT_counts[0],nullptr,&err_counts[0]);
     std::string title = "Counts vs Voltage-PMT"+cst;
     PMT->SetTitle(title.c_str());
     PMT->SetMarkerStyle(8);
-    PMT->GetXaxis()->SetTitle("Voltage");
-    PMT->GetYaxis()->SetTitle("Efficiency");
-    PMT->SetLineStyle(2);
-    PMT->Draw();
+    PMT->GetXaxis()->SetTitle("Voltage [V]");
+    PMT->GetYaxis()->SetTitle("Counts");
+    PMT->GetYaxis()->SetMaxDigits(3);
+    PMT->Draw("ALP");
     title=title+".pdf";
     c->SaveAs(title.c_str());
 
@@ -73,17 +75,30 @@ void efficienze(){
 
     std::vector<float> eff1 {};
     std::vector<float> eff2 {};
+    std::vector<float> err_counts1 {};
+    std::vector<float> err_counts2 {};
+    std::vector<float> err_counts3 {};
+    std::vector<float> err_eff2 {};
+    std::vector<float> err_eff1 {};
 
     for(int i=0; i<size(PMT1_voltage); i++){
         eff1.push_back(coincidence_12.at(i)/PMT1_counts.at(i));
         eff2.push_back(coincidence_12.at(i)/PMT2_counts.at(i));
+        err_counts1.push_back(pow(PMT1_counts.at(i),0.5));
+        err_counts2.push_back(pow(PMT2_counts.at(i),0.5));
+        err_counts3.push_back(pow(PMT3_counts.at(i),0.5));
     }
 
-    pmtEff(PMT1_voltage, eff1,"1");
-    pmtEff(PMT2_voltage, eff2,"2");
-    pmtCounts(PMT2_voltage, PMT1_counts,"1");
-    pmtCounts(PMT2_voltage, PMT2_counts,"2");
-    pmtCounts(PMT2_voltage, PMT3_counts,"3");
+    for(int i=0; i<size(PMT1_voltage);i++){
+        err_eff1.push_back(pow(coincidence_12.at(i)*(1-eff1.at(i)),0.5)/PMT1_counts.at(i));
+        err_eff2.push_back(pow(coincidence_12.at(i)*(1-eff2.at(i)),0.5)/PMT2_counts.at(i));
+    }
+
+    pmtCounts(PMT1_voltage, PMT1_counts, err_counts1,"1");
+    pmtCounts(PMT2_voltage, PMT2_counts, err_counts2,"2");
+    pmtCounts(PMT3_voltage, PMT3_counts, err_counts3,"3");
+    pmtEff(PMT1_voltage, eff1, err_eff1,"1");
+    pmtEff(PMT2_voltage, eff2, err_eff2,"2");
     
 }
    
