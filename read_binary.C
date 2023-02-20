@@ -43,7 +43,7 @@ typedef struct {
 } BHEADER;
 
 typedef struct {
-   char           event_header[3];
+   char           event_header[4];
    unsigned int   event_serial_number;
    unsigned short year;
    unsigned short month;
@@ -77,8 +77,8 @@ void decode(const char *filename) {
 
    unsigned int scaler;
    unsigned short voltage[1024];
-   double waveform[16][3][1024], time[16][3][1024];
-   float bin_width[16][3][1024];
+   double waveform[16][4][1024], time[16][4][1024];
+   float bin_width[16][4][1024];
    char rootfile[256];
    int i, j, b, chn, n, chn_index, n_boards;
    double t1, t2, dt;
@@ -102,21 +102,30 @@ void decode(const char *filename) {
    
    // define the rec tree
    TTree *rec = new TTree("rec","rec");
-   rec->Branch("t1", time[0][0]     ,"t1[1024]/D");
-   rec->Branch("t2", time[0][1]     ,"t2[1024]/D");
-   rec->Branch("t3", time[0][2]     ,"t3[1024]/D");
-   //rec->Branch("t4", time[0][3]     ,"t4[1024]/D");
-   rec->Branch("w1", waveform[0][0] ,"w1[1024]/D");
-   rec->Branch("w2", waveform[0][1] ,"w2[1024]/D");
-   rec->Branch("w3", waveform[0][2] ,"w3[1024]/D");
-   //rec->Branch("w4", waveform[0][3] ,"w4[1024]/D");
+   rec->Branch("t0", time[0][0]     ,"t0[1024]/D");  
+   rec->Branch("t1", time[0][1]     ,"t1[1024]/D");  
+   rec->Branch("t2", time[0][2]     ,"t2[1024]/D");  
+   rec->Branch("t3", time[0][3]     ,"t3[1024]/D");  
+   rec->Branch("t4", time[1][0]     ,"t4[1024]/D");  
+   rec->Branch("t5", time[1][1]     ,"t5[1024]/D");  
+   rec->Branch("t6", time[1][2]     ,"t6[1024]/D");  
+   rec->Branch("t7", time[1][3]     ,"t7[1024]/D");  
+   rec->Branch("w0", waveform[0][0] ,"w0[1024]/D");
+   rec->Branch("w1", waveform[0][1] ,"w1[1024]/D");
+   rec->Branch("w2", waveform[0][2] ,"w2[1024]/D");
+   rec->Branch("w3", waveform[0][3] ,"w3[1024]/D");
+   rec->Branch("w4", waveform[1][0] ,"w4[1024]/D");
+   rec->Branch("w5", waveform[1][1] ,"w5[1024]/D");
+   rec->Branch("w6", waveform[1][2] ,"w6[1024]/D");
+   rec->Branch("w7", waveform[1][3] ,"w7[1024]/D");
    
-   // create canvas
+      // create canvas
    TCanvas *c1 = new TCanvas();
    
    // create graph
    TGraph *g = new TGraph(1024, (double *)time[0], (double *)waveform[0]);
 
+   /*
    // read file header
    fread(&fh, sizeof(fh), 1, f);
    if (fh.tag[0] != 'D' || fh.tag[1] != 'R' || fh.tag[2] != 'S') {
@@ -128,7 +137,7 @@ void decode(const char *filename) {
       printf("Found invalid file version \'%c\' in file \'%s\', should be \'2\', aborting.\n", fh.version, filename);
       return;
    }
-   
+   */
    // read time header
    fread(&th, sizeof(th), 1, f);
    if (memcmp(th.time_header, "TIME", 4) != 0) {
@@ -149,7 +158,7 @@ void decode(const char *filename) {
       
       // read time bin widths
       memset(bin_width[b], 0, sizeof(bin_width[0]));
-      for (chn=0 ; chn<4 ; chn++) {
+      for (chn=0 ; chn<5 ; chn++) {
          fread(&ch, sizeof(ch), 1, f);
          if (ch.c[0] != 'C') {
             // event header found
@@ -167,35 +176,28 @@ void decode(const char *filename) {
       }
    }
    n_boards = b;
-
    // loop over all events in the data file
    for (n=0 ; ; n++) {
       // read event header
       i = (int)fread(&eh, sizeof(eh), 1, f);
-      if (i < 1) {
-         
+      if (i < 1)
          break;
-      }         
       
       printf("Found event #%d %d %d\n", eh.event_serial_number, eh.second, eh.millisecond);
       
       // loop over all boards in data file
       for (b=0 ; b<n_boards ; b++) {
-         printf("entro nel for\n");
+         
          // read board header
          fread(&bh, sizeof(bh), 1, f);
-         printf("b before if = %d \n",b);
          if (memcmp(bh.bn, "B#", 2) != 0) {
-            printf("b after if = %d \n",b);
-            printf("entrato in if\n");
             printf("Invalid board header in file \'%s\', aborting.\n", filename);
             return;
          }
-         // read trigger cell
          
+         // read trigger cell
          fread(&tch, sizeof(tch), 1, f);
          if (memcmp(tch.tc, "T#", 2) != 0) {
-            printf("b after if di t# = %d \n",b);
             printf("Invalid trigger cell header in file \'%s\', aborting.\n", filename);
             return;
          }
@@ -204,55 +206,53 @@ void decode(const char *filename) {
             printf("Found data for board #%d\n", bh.board_serial_number);
          
          // reach channel data
-         for (chn=0 ; chn<3 ; chn++) {
-            printf("b after for chn = %d \n",b);
+         for (chn=0 ; chn<4 ; chn++) {
+            
             // read channel header
             fread(&ch, sizeof(ch), 1, f);
             if (ch.c[0] != 'C') {
-               printf("b after if chn.c = %d \n",b);
                // event header found
                fseek(f, -4, SEEK_CUR);
                break;
             }
             chn_index = ch.cn[2] - '0' - 1;
-            fread(&scaler, sizeof(int), 1, f);
             fread(voltage, sizeof(short), 1024, f);
             
             for (i=0 ; i<1024 ; i++) {
-               printf("b after for chn.c = %d \n",b);
                // convert data to volts
                waveform[b][chn_index][i] = (voltage[i] / 65536. + eh.range/1000.0 - 0.5);
                
                // calculate time for this cell
-               for (j=0,time[b][chn_index][i]=0 ; j<i ; j++){
-                  printf("b after for j = %d \n",b);
-                  time[b][chn_index][i] += bin_width[b][chn_index][(j+tch.trigger_cell) % 1024];}
+               for (j=0,time[b][chn_index][i]=0 ; j<i ; j++)
+                  time[b][chn_index][i] += bin_width[b][chn_index][(j+tch.trigger_cell) % 1024];
             }
          }
-         printf("b after all fors = %d \n",b);
+         
          // align cell #0 of all channels
          t1 = time[b][0][(1024-tch.trigger_cell) % 1024];
-         for (chn=1 ; chn<3 ; chn++) {
-            printf("b after for chn1 = %d \n",b);
+         for (chn=1 ; chn<4 ; chn++) {
             t2 = time[b][chn][(1024-tch.trigger_cell) % 1024];
             dt = t1 - t2;
             for (i=0 ; i<1024 ; i++)
                time[b][chn][i] += dt;
          }
 
-         // fill root tree
-         rec->Fill();
-         
-         // fill graph
-         for (i=0 ; i<1024 ; i++){
-            g->SetPoint(i, time[b][0][i], waveform[b][0][i]);
-            printf("b after for = %d \n",b);
-         }
-         // draw graph and wait for user click
-         g->Draw("ACP");
-         c1->Update();
-         gPad->WaitPrimitive();
+         for (chn=0 ; chn<4 ; chn++) {
+	   // fill graph
+	   for (i=0 ; i<1024 ; i++)
+	     g->SetPoint(i, time[b][chn][i], waveform[b][chn][i]);
+	   
+	   //	   cout<<"Drawing board(from 0) "<<b<<" chn "<<chn<<endl;
+	   // draw graph and wait for user click
+	   g->Draw("ACP");
+	   c1->Update();
+	   gPad->WaitPrimitive();
+	 }
       }
+      // fill root tree
+      rec->Fill();
+      
+      
    }
 
    // print number of events
